@@ -67,7 +67,8 @@ int main(int argc, char * argv[]){
                         insert(&qs_entity.head, &qs_entity.tail, serve, MMBP, time, &qs_entity.size);
                     }else{ // if the queue size has reached threshold
                         // BALK
-                        if(verbose > 1)printf("%03d: BALK, %d\n",time,++qs_entity.stats.balk);
+                        ++qs_entity.stats.balk;
+                        if(verbose > 1)printf("%03d: BALK, %d\n",time,qs_entity.stats.balk);
                     }
                 }
             }
