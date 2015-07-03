@@ -1,3 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "rngs.h"
+#include "rvgs.h"
+#include "myqueue.h"
+
 int main(int argc, char * argv[]){
     int verbose = 1;
     double ALPHA, BETA, LAMBDAM, LAMBDAP, REMOVE, MU, input[8];
