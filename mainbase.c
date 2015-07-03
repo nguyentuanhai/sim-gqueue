@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "rngs.h"
-#include "rvgs.h"
-#include "myqueue.h"
-
 int main(int argc, char * argv[]){
     int verbose = 1;
     double ALPHA, BETA, LAMBDAM, LAMBDAP, REMOVE, MU, input[8];
@@ -15,7 +9,9 @@ int main(int argc, char * argv[]){
     int remove = 0; // size of batch remove
     int serve = 0; // time necessary to serve the customer
     queue_struct qs_entity; // the queue
-
+    int **collect_states = (int **)malloc(2 * sizeof(int *));
+    int i = 0, j = 0;
+    int double_remove = 0, single_remove = 0;
     if(argc != 9){
         printf("Invalid input.\n");
         printf("Correct input: ALPHA BETA LAMBDAM LAMBDAP REMOVE MU THRESHOLD SIM_LENGTH\n");
@@ -32,10 +28,11 @@ int main(int argc, char * argv[]){
     MU = input[5];
     THRESHOLD = input[6];
     SIM_LENGTH = input[7];
-
     // initialize
-    qs_entity.threshold = THRESHOLD;
+    qs_entity.threshold = 2;
     PlantSeeds(-1);
+    collect_states[0] = (int *)calloc(qs_entity.threshold + 1, sizeof(int));
+    collect_states[1] = (int *)calloc(qs_entity.threshold + 1, sizeof(int));
 
     initialize(&qs_entity);
     for(time = 0; time < SIM_LENGTH; time++){
@@ -76,7 +73,12 @@ int main(int argc, char * argv[]){
             if(Bernoulli(LAMBDAM)){
                 remove = 1 + Geometric(1-REMOVE);
                 if(verbose > 1)printf("%03d: REMOVAL, %d - ",time,remove);
-                qs_entity.stats.removed += removal(&qs_entity, remove, time, &qs_entity.size, verbose);
+                //qs_entity.stats.removed += removal(&qs_entity, remove, time, &qs_entity.size, verbose);
+                remove = removal(&qs_entity, remove, time, &qs_entity.size, verbose);
+                qs_entity.stats.removed += remove;
+                if(remove == 2)double_remove++;
+                if(remove == 1)single_remove++;
+                if(verbose > 1)printf("Total removed: %d\n",qs_entity.stats.removed);
             }
         }
         qs_entity.stats.average_queue_length = ((time * qs_entity.stats.average_queue_length)+qs_entity.size)/(time+1);
@@ -85,6 +87,7 @@ int main(int argc, char * argv[]){
             print_queue(&qs_entity.head);
             printf("\n");
         }
+        collect_states[MMBP][qs_entity.size]++;
     }
     if(verbose > 0){
         printf("===== SIMULATION END =====\n");
@@ -102,5 +105,22 @@ int main(int argc, char * argv[]){
     }
     if(verbose > 0)printf("==========================\n");
     if(verbose >= 0)printf("The threshold strategy is: %d.\n",qs_entity.threshold - 1);
+
+    if(verbose > 0){
+        printf("States:\n");
+        for(i = 0; i < 2; i++){
+            for(j = 0; j <= qs_entity.threshold; j++)
+                printf("p[%d][%d]: %03lf, ", i, j, (double)collect_states[i][j]/SIM_LENGTH);
+            printf("\n");
+        }
+    }
+    if(verbose > 0){
+        printf("Non-balks normalized: %03lf.\n", (double)(qs_entity.stats.removed+qs_entity.stats.served)/SIM_LENGTH);
+        printf("Calculated arrivals: %03lf.\n", 0.6*(1-(double)qs_entity.stats.removed/(qs_entity.stats.removed+qs_entity.stats.served)));
+        printf("Effective arrival from Little's Law: %02lf.\n", qs_entity.stats.average_queue_length/(qs_entity.stats.average_wait/(qs_entity.stats.removed + qs_entity.stats.served)));
+        printf("Single removals: %d.\n", single_remove);
+        printf("Expected double removals: %.0lf.\n", collect_states[0][2]*(1-MU)*BETA*LAMBDAM*(1-REMOVE) + collect_states[1][2]*(1-MU)*(1-ALPHA)*LAMBDAM*(1-REMOVE));
+        printf("Double removals: %d.\n", double_remove);
+    }
     return 0;
 }
